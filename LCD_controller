@@ -1,0 +1,115 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+use IEEE.numeric_std.all;
+--USE ieee.std_logic_unsigned.all;
+
+ENTITY LCD_controller IS
+    PORT(
+        clk       : IN     STD_LOGIC;                     --system clock
+        reset_n   : IN     STD_LOGIC;                     --ACTIVE LOW RESET
+        LCD_EN    : OUT    STD_LOGIC;
+        LCD_RS    : OUT    STD_LOGIC;
+        LCD_Data  : OUT    STD_LOGIC_VECTOR(7 DOWNTO 0)
+        );
+END LCD_controller;
+
+ARCHITECTURE arch OF LCD_controller IS
+
+component clk_enabler is
+GENERIC (
+CONSTANT cnt_max : integer := 208333);      --  1.0 Hz actually 200hz (5ms)
+PORT(
+clock : in std_logic;
+clk_en : out std_logic
+);
+end component;
+
+TYPE state_type IS(s0, s1, s2); --needed states
+signal state      : state_type;                   --state machine
+signal byteSel    : integer range 0 to 29:=0;
+signal LCD_clock_enable : std_logic;
+signal sel : std_logic;
+
+begin
+
+Inst_clk_enabler: clk_enabler
+generic map(
+cnt_max => 208333) -- ELSE USE 124999999
+port map(
+clock => clk, -- output from sys_clk
+clk_en => LCD_clock_enable  -- enable every 10th sys_clk edge
+);
+
+
+process(byteSel)
+ begin
+    case byteSel is
+       when 0  => LCD_Data <= X"38"; LCD_RS <= '0';
+       when 1  => LCD_Data <= X"38";   LCD_RS <= '0';
+       when 2  => LCD_Data <= X"38";  LCD_RS <= '0';
+       when 3  => LCD_Data <= X"38";   LCD_RS <= '0';        
+       when 4  => LCD_Data <= X"38";  LCD_RS <= '0';
+       when 5  => LCD_Data <= X"38";   LCD_RS <= '0';
+       when 6  => LCD_Data <= X"01";  LCD_RS <= '0';
+       when 7  => LCD_Data <= X"0C"; LCD_RS <= '0';
+       when 8  => LCD_Data <= X"06"; LCD_RS <= '0';
+       when 9  => LCD_Data <= X"80"; LCD_RS <= '0';
+               
+       when 10 => LCD_Data <= X"53"; LCD_RS <= '1';  -- 'S'
+       when 11 => LCD_Data <= X"79"; LCD_RS <= '1';  -- 'y'    
+       when 12 => LCD_Data <= X"73"; LCD_RS <= '1' ; -- 's'
+       when 13 => LCD_Data <= X"74"; LCD_RS <= '1'; -- 't'      
+       when 14 => LCD_Data <= X"65"; LCD_RS <= '1'; -- 'e'
+       when 15 => LCD_Data <= X"6D"; LCD_RS <= '1'; -- 'm'
+       
+       when 16 => LCD_Data <= X"FE"; LCD_RS <= '0';
+       
+       when 17 => LCD_Data <= X"52"; LCD_RS <= '1';     -- 'r'  
+       when 18 => LCD_Data <= X"65"; LCD_RS <= '1'; -- e
+       when 19 => LCD_Data <= X"61"; LCD_RS <='1'; --a
+       when 20 => LCD_Data <= X"64"; LCD_RS <= '1'; -- d
+       when 21 => LCD_Data <=  X"79"; LCD_RS <='1'; -- y
+       
+       when 22 => LCD_Data <= X"C0"; LCD_RS <= '0';
+       
+       when 23 => LCD_Data <= X"3D"; LCD_RS <= '1';        
+       when 24 => LCD_Data <= X"3D"; LCD_RS <= '1';
+       when 25 => LCD_Data <= X"3E"; LCD_RS <= '1';        
+       when 26 => LCD_Data <= X"44"; LCD_RS <= '1';
+       when 27 => LCD_Data <= X"45"; LCD_RS <= '1';          
+       when 28 => LCD_Data <= X"41"; LCD_RS <= '1';
+       when 29 => LCD_Data <= X"44"; LCD_RS <= '1' ;   
+            
+       when others => LCD_Data <= X"38"; LCD_RS <= '0';
+   end case;
+end process;
+
+process(clk, reset_n)
+begin
+    if reset_n = '0' then
+        LCD_EN <= '0';
+        sel <= '0';
+        state <= s0;
+    elsif rising_edge(clk) and LCD_clock_enable = '1' then
+        case state is
+            when s0 =>
+                LCD_EN <= '1';
+                state <= s1;
+            when s1 =>
+                LCD_EN <= '0';
+                state <= s2;
+            when s2 =>
+            LCD_EN <= '0';
+            state <= s0;
+            if byteSel < 29 then
+           	   byteSel <= byteSel + 1;
+        	else	 
+           	   byteSel <= 22;      
+         	end if; 
+            when others => state <= s0;
+            
+ end case;
+ end if;          
+end process;
+
+end arch;
